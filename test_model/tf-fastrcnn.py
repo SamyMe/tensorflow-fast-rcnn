@@ -5,6 +5,7 @@ import numpy as np
 import os
 from scipy.misc import imread, imresize
 from roi_pooling_importer import * # import_roi_pooling_opt 
+from image_lib import draw_shapes
 
 
 # Import roi_pooling_op
@@ -346,6 +347,7 @@ if __name__ == '__main__':
         cls_boxes = cls_boxes[keep, :]
         print(cls)
         print(keep[0])
+        draw_shapes(img1, keep)
 
 
     preds = (np.argsort(prob)[::-1])[0:5]
