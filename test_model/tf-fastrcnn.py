@@ -13,7 +13,15 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import ops
 import numpy as np
 from scipy.misc import imread, imresize
-from imagenet_classes import class_names
+
+class_names = ('__background__',
+           'aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor')
+
+
 
 # Import the forward op
 roi_pooling_module = tf.load_op_library(
@@ -279,6 +287,7 @@ class Fast_rcnn:
 if __name__ == '__main__':
     sess = tf.Session()
     imgs = tf.placeholder(tf.float32, [None, 224, 224, 3])
+    nb_cls = len(class_names )
     vgg = vgg16(imgs, 'vgg16_weights.npz', sess)
 
     # img1 = imread('laska.png', mode='RGB')
