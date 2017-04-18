@@ -13,7 +13,7 @@ roi_pooling_op_dir = os.getenv("HOME") + "/Documents/github/roi_pool/tensorflow-
 roi_pooling_op = import_roi_pooling_op(roi_pooling_op_dir)
 
 class Fast_rcnn:
-    def __init__(self, imgs, rois, weights=None, nb_classes=3,
+    def __init__(self, imgs, rois, weights=None, class_names=[],
                  roi_pool_output_dim=(7,7), sess=None):
 
         self.class_names = class_names
@@ -333,7 +333,7 @@ if __name__ == '__main__':
     # Loading Selective Search
     roi_data = [[(0, 1, 50, 50), (50, 50, 500, 500)]]
 
-    prob, bbox = sess.run((fast_rcnn.cls_score fast_rcnn.bbox_pred_l), 
+    prob, bbox = sess.run((fast_rcnn.cls_score, fast_rcnn.bbox_pred_l), 
                     feed_dict={fast_rcnn.imgs: [img1], fast_rcnn.rois: roi_data})[0]
 
     # Extracting Boxes
