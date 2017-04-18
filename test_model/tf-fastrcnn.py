@@ -15,24 +15,19 @@ import numpy as np
 from scipy.misc import imread, imresize
 from imagenet_classes import class_names
 
-# Import the forward op
-roi_pooling_module = tf.load_op_library(
-    "../lib/layers/roi_pooling_op.so")
-roi_pooling_op = roi_pooling_module.roi_pooling
-
-# Import the gradient op
-roi_pooling_module_grad = tf.load_op_library(
-    "../lib/layers/roi_pooling_op_grad.so")
-roi_pooling_op_grad = roi_pooling_module_grad.roi_pooling_grad
-
+# Import roi_pooling_op
+roi_pooling_op_dir = os.getenv("HOME") + "/packages/tensorflow/bazel-bin/tensorflow/core/user_ops/"
+roi_pooling_op = import_roi_pooling_op(roi_pooling_op_dir)
 
 class Fast_rcnn:
-    def __init__(self, imgs, weights=None, nb_classes=3, sess=None):
+    def __init__(self, imgs, rois, weights=None, nb_classes=3,
+                 roi_pool_output_dim=(7,7), sess=None):
         self.nb_classes = nb_classes
+        self.roi_pool_output_dim = roi_pool_output_dim
         self.imgs = imgs
+        self.rois = rois
         self.convlayers()
         self.fc_layers()
-        self.probs = tf.nn.softmax(self.fc3l)
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
 
@@ -217,56 +212,72 @@ class Fast_rcnn:
             self.parameters += [kernel, biases]
 
         # pool5
-        self.pool5 = tf.nn.max_pool(self.conv5_3,
-                               ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1],
-                               padding='SAME',
-                               name='pool4')
+        # self.pool5 = tf.nn.max_pool(self.conv5_3,
+                               # ksize=[1, 2, 2, 1],
+                               # strides=[1, 2, 2, 1],
+                               # padding='SAME',
+                               # name='pool5')
+
+        # roi_pool5
+        # First convert NHWC to NCHW
+        relu5_transpose = tf.transpose(self.conv5_3, [0, 3, 1, 2])
+        output_dim_tensor = tf.constant(self.roi_pool_output_dim)
+        roi_pool5, argmax = roi_pooling_op(relu5_transpose, self.rois, output_dim_tensor)
+
+        # ROI pooling outputs in NCRHW.It shouldn't matter,but let's transpose to NRCHW.
+        roi_pool5_transpose = tf.transpose(roi_pool5, [0, 2, 1, 3, 4])
+        
+        # We need to bring this down to 4-d - collapse the ROI and batch together.
+        # Should be redundant with next reshape, but whatever
+        self.roi_pool5_reshaped = tf.reshape(roi_pool5_transpose, (-1, 512, 6, 6))
 
     def fc_layers(self):
         # fc1
         with tf.name_scope('fc6') as scope:
-            shape = int(np.prod(self.pool5.get_shape()[1:]))
-            fc1w = tf.Variable(tf.truncated_normal([shape, 4096],
+            # shape = int(np.prod(self.pool5.get_shape()[1:]))
+            shape = int(np.prod(self.roi_pool5_reshaped.get_shape()[1:]))
+            fc6w = tf.Variable(tf.truncated_normal([shape, 4096],
                                                          dtype=tf.float32,
                                                          stddev=1e-1), name='weights')
-            fc1b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
+            fc6b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
                                  trainable=True, name='biases')
             pool5_flat = tf.reshape(self.pool5, [-1, shape])
-            fc1l = tf.nn.bias_add(tf.matmul(pool5_flat, fc1w), fc1b)
-            self.fc1 = tf.nn.relu(fc1l)
-            self.parameters += [fc1w, fc1b]
+            fc6l = tf.nn.bias_add(tf.matmul(pool5_flat, fc6w), fc6b)
+            self.fc6 = tf.nn.relu(fc6l)
+            self.parameters += [fc6w, fc6b]
 
         # fc2
         with tf.name_scope('fc7') as scope:
-            fc2w = tf.Variable(tf.truncated_normal([4096, 4096],
+            fc7w = tf.Variable(tf.truncated_normal([4096, 4096],
                                                          dtype=tf.float32,
                                                          stddev=1e-1), name='weights')
-            fc2b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
+            fc7b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
                                  trainable=True, name='biases')
-            fc2l = tf.nn.bias_add(tf.matmul(self.fc1, fc2w), fc2b)
-            self.fc2 = tf.nn.relu(fc2l)
-            self.parameters += [fc2w, fc2b]
+            fc7l = tf.nn.bias_add(tf.matmul(self.fc1, fc7w), fc7b)
+            self.fc7 = tf.nn.relu(fc7l)
+            self.parameters += [fc7w, fc7b]
 
         # cls_score
         with tf.name_scope('cls_score') as scope:
-            fc3w = tf.Variable(tf.truncated_normal([4096, self.nb_classes],
+            cls_score_w = tf.Variable(tf.truncated_normal([4096, self.nb_classes],
                                                          dtype=tf.float32,
                                                          stddev=1e-1), name='weights')
-            fc3b = tf.Variable(tf.constant(1.0, shape=[1000], dtype=tf.float32),
+            cls_score_b = tf.Variable(tf.constant(1.0, shape=[1000], dtype=tf.float32),
                                  trainable=True, name='biases')
-            self.fc3l = tf.nn.bias_add(tf.matmul(self.fc2, fc3w), fc3b)
-            self.parameters += [fc3w, fc3b]
+            self.cls_score_l = tf.nn.bias_add(tf.matmul(self.fc2, cls_score_w), cls_score_b)
+            self.parameters += [cls_score_w, cls_score_b]
+
+            self.cls_score = tf.nn.softmax(self.cls_score_l)
 
         # bbox_pred 
         with tf.name_scope('bbox_pred') as scope:
-            fc3w = tf.Variable(tf.truncated_normal([4096, self.nb_classes*4],
+            bbox_pred_w = tf.Variable(tf.truncated_normal([4096, self.nb_classes*4],
                                                          dtype=tf.float32,
                                                          stddev=1e-1), name='weights')
-            fc3b = tf.Variable(tf.constant(1.0, shape=[1000], dtype=tf.float32),
+            bbox_pred_b = tf.Variable(tf.constant(1.0, shape=[1000], dtype=tf.float32),
                                  trainable=True, name='biases')
-            self.fc3l = tf.nn.bias_add(tf.matmul(self.fc2, fc3w), fc3b)
-            self.parameters += [fc3w, fc3b]
+            self.bbox_pred_l = tf.nn.bias_add(tf.matmul(self.fc2, bbox_pred_w), bbox_pred_b)
+            self.parameters += [bbox_pred_w, bbox_pred_b]
 
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file)#.item()
@@ -278,16 +289,30 @@ class Fast_rcnn:
 
 if __name__ == '__main__':
     sess = tf.Session()
-    imgs = tf.placeholder(tf.float32, [None, 224, 224, 3])
-    vgg = vgg16(imgs, 'vgg16_weights.npz', sess)
+    # Image placeholder
+    imgs = tf.placeholder(tf.float32, [None, None, None, 3])
+    # imgs = tf.placeholder(tf.float32, [None, 6000, 1000, 3])
+
+    # ROIs placeholder
+    rois_in = tf.placeholder(tf.int32, shape=[None, 4])
+    rois = tf.reshape(rois_in, [1, -1, 4])
+
+    # Building Net
+    fast_rcnn = Fast_rcnn(imgs, rois, 'vgg16_weights.npz', sess)
 
     # img1 = imread('laska.png', mode='RGB')
     # img1 = imresize(img1, (224, 224))
 
     img1 = imread('1000039898195.jpg', mode='RGB')
-    img1 = imresize(img1, (224, 224))
+    # The width and height of the image
+    # Must be divisible by the pooling layers
+    img1 = imresize(img1, (1000, 6000))
 
-    prob = sess.run(vgg.probs, feed_dict={vgg.imgs: [img1]})[0]
+    # Loading Selective Search
+    roi_data = []
+
+    prob = sess.run(fast_rcnn.cls_score, 
+                    feed_dict={fast_rcnn.imgs: [img1], fast_rcnn.rois = roi_data})[0]
     preds = (np.argsort(prob)[::-1])[0:5]
     for p in preds:
         print class_names[p], prob[p]
