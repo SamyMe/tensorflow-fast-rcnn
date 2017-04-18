@@ -1,13 +1,3 @@
-########################################################################################
-# Davi Frossard, 2016                                                                  #
-# VGG16 implementation in TensorFlow                                                   #
-# Details:                                                                             #
-# http://www.cs.toronto.edu/~frossard/post/vgg16/                                      #
-#                                                                                      #
-# Model from https://gist.github.com/ksimonyan/211839e770f7b538e2d8#file-readme-md     #
-# Weights from Caffe converted using https://github.com/ethereon/caffe-tensorflow      #
-########################################################################################
-
 import tensorflow as tf
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import ops
@@ -15,14 +5,6 @@ import numpy as np
 import os
 from scipy.misc import imread, imresize
 from roi_pooling_importer import * # import_roi_pooling_opt 
-
-class_names = ('__background__',
-           'aeroplane', 'bicycle', 'bird', 'boat',
-           'bottle', 'bus', 'car', 'cat', 'chair',
-           'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant',
-           'sheep', 'sofa', 'train', 'tvmonitor')
-
 
 
 # Import roi_pooling_op
@@ -32,7 +14,9 @@ roi_pooling_op = import_roi_pooling_op(roi_pooling_op_dir)
 class Fast_rcnn:
     def __init__(self, imgs, rois, weights=None, nb_classes=3,
                  roi_pool_output_dim=(7,7), sess=None):
-        self.nb_classes = nb_classes
+
+        self.class_names = class_names
+        self.nb_classes = len(class_names)
         self.roi_pool_output_dim = roi_pool_output_dim
         self.imgs = imgs
         self.rois = rois
@@ -40,7 +24,6 @@ class Fast_rcnn:
         self.fc_layers()
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
-
 
     def convlayers(self):
         self.parameters = []
@@ -313,6 +296,7 @@ class Fast_rcnn:
             sess.run(self.parameters[i+1].assign(wb[1].T))
             i += 2
 
+
 if __name__ == '__main__':
     sess = tf.Session()
     # Image placeholder
@@ -323,10 +307,19 @@ if __name__ == '__main__':
     rois_in = tf.placeholder(tf.int32, shape=[None, 4])
     rois = tf.reshape(rois_in, [1, -1, 4])
 
-    nb_cls = len(class_names )
+    # Classes names
+    class_names = ('__background__',
+           'aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor')
+    
+    # Weights file
     w = '/home/samy/Documents/mappy/panos/saved_data/vgg16_fast_rcnn_iter_40000.npy'
+
     # Building Net
-    fast_rcnn = Fast_rcnn(imgs, rois, weights=w, nb_classes=nb_cls, sess=sess)
+    fast_rcnn = Fast_rcnn(imgs, rois, weights=w, class_names=class_names, sess=sess)
 
     # img1 = imread('laska.png', mode='RGB')
     # img1 = imresize(img1, (224, 224))
@@ -339,8 +332,21 @@ if __name__ == '__main__':
     # Loading Selective Search
     roi_data = [[(0, 1, 50, 50), (50, 50, 500, 500)]]
 
-    prob = sess.run(fast_rcnn.cls_score, 
+    prob, bbox = sess.run((fast_rcnn.cls_score fast_rcnn.bbox_pred_l), 
                     feed_dict={fast_rcnn.imgs: [img1], fast_rcnn.rois: roi_data})[0]
+
+    # Extracting Boxes
+    detect = ['person', 'car'] 
+    CONF_THRESH = 0.4
+    for cls in detect:
+        cls_ind = class_names.index(cls)
+        cls_boxes = bbox[:, 4*cls_ind:4*(cls_ind+1)]
+        cls_scores = scores[:, cls_ind]
+        keep = np.where(cls_scores >= CONF_THRESH)[0]
+        cls_boxes = cls_boxes[keep, :]
+        print(cls)
+        print(keep[0])
+
 
     preds = (np.argsort(prob)[::-1])[0:5]
     for p in preds:
