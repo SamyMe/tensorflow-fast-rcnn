@@ -13,7 +13,7 @@ roi_pooling_op_dir = os.getenv("HOME") + "/Documents/github/roi_pool/tensorflow-
 roi_pooling_op = import_roi_pooling_op(roi_pooling_op_dir)
 
 class Fast_rcnn:
-    def __init__(self, imgs, rois, weights=None, class_names=[],
+    def __init__(self, imgs, rois, class_name=class_name,
                  roi_pool_output_dim=(7,7), sess=None):
 
         self.class_names = class_names
@@ -21,10 +21,13 @@ class Fast_rcnn:
         self.roi_pool_output_dim = roi_pool_output_dim
         self.imgs = imgs
         self.rois = rois
+
+    def build_model(self, weights=None):
         self.convlayers()
         self.fc_layers()
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
+
 
     def convlayers(self):
         self.parameters = []
@@ -298,6 +301,35 @@ class Fast_rcnn:
             i += 2
 
 
+    def fit(self, mode="fc", lr=0.001, nb_iter=100):
+        """
+        mode :   Option to chose whether to train all the network, the fully connected 
+                 part, or only the bbox regression. So it can be either :
+                 "all", "fc" or "bbox".
+        lr:      Learning Rate.
+        nb_iter: Number of iterations.
+        """
+
+        var_list = { "fc": self.parameters[-8:],
+                     "all": self.parameters,
+                     "bbox": self.parameters[-2:],
+                    }
+
+        y_box = tf.placeholder(tf.float32, shape=[None, 4*self.nb_classes])
+        y_cls = tf.placeholder(tf.float32, shape=[None, self.nb_classes])
+        # need to get index of the class like : bbox_pred[cls*4: (cls+1)*4]
+        self.bbox_loss = tf.squared_difference(self.bbox_pred_l , y_bbox)
+        self.cls_loss = tf.equal(tf.argmax(y_cls,1), tf.argmax(self.cls_score, 1))
+        self.cls_loss = tf.reduce_mean(self.cls_loss)
+
+        if mode in ["fc", "all"]:
+            self.cost = tf.add(self.bbox_loss, self.cls_loss)
+        elif mode=="bbox":
+            self.cost = self.bbox_loss 
+
+        opt = tf.train.GradientDescentOptimizer(learning_rate=lr)
+        self.opt_op = opt.minimize(self.cost, var_list=var_list[mode])
+
 if __name__ == '__main__':
     sess = tf.Session()
     # Image placeholder
@@ -320,7 +352,8 @@ if __name__ == '__main__':
     w = '/home/samy/Documents/mappy/panos/saved_data/vgg16_fast_rcnn_iter_40000.npy'
 
     # Building Net
-    fast_rcnn = Fast_rcnn(imgs, rois, weights=w, class_names=class_names, sess=sess)
+    fast_rcnn = Fast_rcnn(imgs, rois, class_names=class_names, sess=sess)
+    fast_rcnn.build_model(weights=w) 
 
     # img1 = imread('laska.png', mode='RGB')
     # img1 = imresize(img1, (224, 224))
