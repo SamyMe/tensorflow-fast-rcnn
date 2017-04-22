@@ -13,7 +13,7 @@ def image_show(ndimage):
     plt.imshow(ndimage)
     plt.show()
 
-def draw_shapes(img, faces=None, lp=None, shape=None):
+def draw_shapes(img, faces=[], lp=[], shape=None):
     """
     img : ndimage
     shape : "rectangle", "circle", "polygn"
@@ -22,8 +22,10 @@ def draw_shapes(img, faces=None, lp=None, shape=None):
     """
 
     # If changed dimensions, re put them
-    if img.shape[2]>3:
-        img = np.rollaxis(img, 0, 3)
+    # print img.shape
+    # if img.shape[2]>3:
+        # img = np.rollaxis(img, 0, 3)
+    # print img.shape
 
     # Create figure and axes
     fig,ax = plt.subplots(1)
