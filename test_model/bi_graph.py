@@ -32,7 +32,6 @@ class Fast_rcnn:
     def build_model(self, weights=None, sess=None):
 
         self.conv_saved = tf.Variable(np.zeros([1, 32, 32, 512]), dtype=tf.float32, name="saved_conv")
-        # sess.run(tf.variables_initializer([self.conv_saved]))
         self.convlayers()
         self.fc_layers()
         if weights is not None and sess is not None:
@@ -128,34 +127,7 @@ class Fast_rcnn:
 
         self.save_conv = tf.assign(ref=self.conv_saved, value=self.conv5_3, validate_shape=False)
 
-        # pool5
-        # self.pool5 = self.max_pool(input=self.conv5_3,
-                               # kernel_size=[1, 2, 2, 1],
-                               # stride=2,
-                               # name='pool5')
-
-        # # roi_pool5
-        # # First convert NHWC to NCHW
-        # relu5_transpose = tf.transpose(self.conv1_1, [0, 3, 1, 2])
-        # output_dim_tensor = tf.constant((104,104))
-        # 
-        # # rois = tf.split(self.rois, self.nb_rois, 0)
-        # # for roi in rois:
-        # ratio = tf.constant(1)
-        # self.rois = rois
-        # self.reshaped_rois = tf.div(rois, ratio)
- 
-        # roi_pool5, argmax = roi_pooling_op(relu5_transpose, self.reshaped_rois, output_dim_tensor)
- 
-        # # ROI pooling outputs in NCRHW.It shouldn't matter,but let's transpose to NRCHW.
-        # roi_pool5_transpose = tf.transpose(roi_pool5, [0, 2, 1, 3, 4])
-        # 
-        # # We need to bring this down to 4-d - collapse the ROI and batch together.
-        # # Should be redundant with next reshape, but whatever
-        # self.roi_pool5_reshaped2 = tf.reshape(roi_pool5_transpose, (-1, 64, 104, 104))
- 
-        # ###############################################################################
-
+       
     def fc_layers(self):
 
         # roi_pool5
@@ -234,9 +206,6 @@ class Fast_rcnn:
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file).item()
         keys = sorted(weights.keys())
-        # for i, k in enumerate(keys):
-            # print i, k, np.shape(weights[k])
-            # sess.run(self.parameters[i].assign(weights[k]))
         
         wb = weights['bbox_pred']
         sess.run(self.parameters[-1].assign(wb[1].T))
