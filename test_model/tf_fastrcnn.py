@@ -304,7 +304,7 @@ if __name__ == '__main__':
 
     # img1 = imread('1000039898195.jpg', mode='RGB')
     # img1 = imread('/home/samy/Pictures/test.jpg', mode='RGB')
-    img1 = imread('/home/samy/Pictures/bird.jpg', mode='RGB')
+    img1 = imread('/home/samy/Pictures/cat.jpg', mode='RGB')
     # img1 = imread('/home/samy/Pictures/cars.jpg', mode='RGB')
     
     # The width and height of the image

@@ -30,8 +30,10 @@ class Fast_rcnn:
         self.strides = 1
 
     def build_model(self, weights=None, sess=None):
+
+        self.conv_saved = tf.Variable(np.zeros([1, 32, 32, 512]), dtype=tf.float32, name="saved_conv")
+        # sess.run(tf.variables_initializer([self.conv_saved]))
         self.convlayers()
-        self.convolve(sess=sess)
         self.fc_layers()
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
@@ -70,6 +72,7 @@ class Fast_rcnn:
         with tf.name_scope('preprocess') as scope:
             mean = tf.constant([123.68, 116.779, 103.939], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
             images = self.imgs-mean
+
 
         # conv1_1
         self.conv1_1 = self.conv_2d('1_1', input=images, kernel_size=[3, 3, 3, 64], stride=1) 
@@ -122,6 +125,9 @@ class Fast_rcnn:
         # conv5_3
         self.conv5_3 = self.conv_2d('5_3', input=self.conv5_2, kernel_size=[3, 3, 512, 512], stride=1) 
 
+
+        self.save_conv = tf.assign(ref=self.conv_saved, value=self.conv5_3, validate_shape=False)
+
         # pool5
         # self.pool5 = self.max_pool(input=self.conv5_3,
                                # kernel_size=[1, 2, 2, 1],
@@ -155,6 +161,7 @@ class Fast_rcnn:
         # roi_pool5
         # First convert NHWC to NCHW
         relu5_transpose = tf.transpose(self.conv_saved, [0, 3, 1, 2])
+        # relu5_transpose = tf.transpose(self.conv_saved, [0, 3, 1, 2])
         output_dim_tensor = tf.constant(self.roi_pool_output_dim)
         
         # rois = tf.split(self.rois, self.nb_rois, 0)
@@ -223,18 +230,6 @@ class Fast_rcnn:
             # self.bbox_pred_l = tf.nn.relu(self.bbox_pred_l)
             self.parameters += [bbox_pred_w, bbox_pred_b]
 
-    def convolve(self, img=None, sess=None):
-
-        if img==None:
-            conv5_3 = np.zeros([1, 32, 32, 512])
-        else :
-            conv5_3 = sess.run(self.conv5_3, 
-                    feed_dict={self.imgs: [img]})
-
-        self.conv_saved = tf.Variable(conv5_3, dtype=tf.float32)
-        sess.run(tf.variables_initializer([self.conv_saved]))
-
-
 
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file).item()
@@ -258,82 +253,4 @@ class Fast_rcnn:
             sess.run(self.parameters[i].assign(wb[0].T))
             sess.run(self.parameters[i+1].assign(wb[1].T))
             i += 2
-
-
-if __name__ == '__main__':
-    sess = tf.Session()
-    # Image placeholder
-    imgs = tf.placeholder(tf.float32, [None ,None, None, 3])
-    # imgs = tf.placeholder(tf.float32, [None, 6000, 1000, 3])
-
-    # ROIs placeholder
-    rois_in = tf.placeholder(tf.int32, shape=[None, 4])
-    rois = tf.reshape(rois_in, [1, -1, 4])
-
-    # Classes names
-    class_names = ('__background__',
-           'aeroplane', 'bicycle', 'bird', 'boat',
-           'bottle', 'bus', 'car', 'cat', 'chair',
-           'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant',
-           'sheep', 'sofa', 'train', 'tvmonitor')
-    
-    # Weights file
-    w = '/home/samy/Documents/mappy/panos/saved_data/vgg16_fast_rcnn_iter_40000.npy'
-
-    # Building Net
-
-    # img1 = imread('laska.png', mode='RGB')
-    # img1 = imresize(img1, (224, 224))
-
-    # img1 = imread('1000039898195.jpg', mode='RGB')
-    # img1 = imread('/home/samy/Pictures/test.jpg', mode='RGB')
-    img1 = imread('/home/samy/Pictures/bird.jpg', mode='RGB')
-    # img1 = imread('/home/samy/Pictures/cars.jpg', mode='RGB')
-    
-    # The width and height of the image
-    # Must be divisible by the pooling layers
-    im_shape = img1.shape
-    print(im_shape)
-    img1 = imresize(img1, (
-                        int(im_shape[0]/16)*16,
-                        int(im_shape[1]/16)*16))
-    im_shape = img1.shape
-    print(im_shape)
-
-    # Loading Selective Search
-    roi_data = [[(0, 1, 50, 50), (20, 20, 100, 100), (50, 50, 100, 50)]]
-    # roi_data = [[(1, 1, im_shape[0], im_shape[1])]]
-    # 15 -> person
-    # 7  -> car
-
-    fast_rcnn = Fast_rcnn(imgs, rois, nb_rois=2, class_names=class_names, sess=sess)
-    fast_rcnn.build_model(weights=w, sess=sess) 
-    fast_rcnn.convolve(img1, sess=sess)
-
-    prob, bbox = sess.run((fast_rcnn.cls_score, fast_rcnn.bbox_pred_l), 
-                    feed_dict={fast_rcnn.rois: roi_data})
-
-    # print(prob)
-    # print(bbox)
-    for i in range(len(prob)):
-        prob_ = prob[i]
-        bbox_ = bbox[i]
-
-        preds = (np.argsort(prob_)[::-1])[0:5]
-        for p in preds:
-            print class_names[p], prob_[p]
-
-    # Extracting Boxes
-    detect = ['person', 'car', 'cat'] 
-    CONF_THRESH = 0.5
-    for cls in detect:
-        cls_ind = class_names.index(cls)
-        cls_boxes = bbox[:, 4*cls_ind:4*(cls_ind+1)]
-        cls_scores = prob[:, cls_ind]
-        keep = np.where(cls_scores >= CONF_THRESH)[0] 
-        for i in keep:
-            print(cls, cls_scores[i], cls_boxes)
-            draw_shapes(img1, cls_boxes)
-
 
