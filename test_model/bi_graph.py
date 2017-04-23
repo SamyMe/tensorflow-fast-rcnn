@@ -160,7 +160,7 @@ class Fast_rcnn:
         # rois = tf.split(self.rois, self.nb_rois, 0)
         # for roi in rois:
         ratio = tf.constant(self.strides)
-        self.rois = rois
+        rois = self.rois
         self.reshaped_rois = tf.div(rois, ratio)
 
         roi_pool5, argmax = roi_pooling_op(relu5_transpose, self.reshaped_rois, output_dim_tensor)
@@ -229,7 +229,7 @@ class Fast_rcnn:
             conv5_3 = np.zeros([1, 32, 32, 512])
         else :
             conv5_3 = sess.run(self.conv5_3, 
-                    feed_dict={fast_rcnn.imgs: [img]})
+                    feed_dict={self.imgs: [img]})
 
         self.conv_saved = tf.Variable(conv5_3, dtype=tf.float32)
         sess.run(tf.variables_initializer([self.conv_saved]))
@@ -314,8 +314,8 @@ if __name__ == '__main__':
     prob, bbox = sess.run((fast_rcnn.cls_score, fast_rcnn.bbox_pred_l), 
                     feed_dict={fast_rcnn.rois: roi_data})
 
-    print(prob)
-    print(bbox)
+    # print(prob)
+    # print(bbox)
     for i in range(len(prob)):
         prob_ = prob[i]
         bbox_ = bbox[i]
