@@ -10,7 +10,9 @@ from image_lib import draw_shapes
 
 
 # Import roi_pooling_op
-roi_pooling_op_dir = os.getenv("HOME") + "/Documents/github/roi_pool/tensorflow-fast-rcnn/tensorflow/core/user_ops/"
+roi_pooling_op_dir = os.getenv("HOME") + "/Documents/git/tensorflow/bazel-bin/tensorflow/core/user_ops/"
+# roi_pooling_op_dir = os.getenv("HOME") + "/Documents/git/roi_pool/tensorflow-fast-rcnn/tensorflow/core/user_ops/"
+# roi_pooling_op_dir = '../lib/layers/'
 roi_pooling_op = import_roi_pooling_op(roi_pooling_op_dir)
 
 class Fast_rcnn:
