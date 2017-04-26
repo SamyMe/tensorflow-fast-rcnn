@@ -1,5 +1,13 @@
-tensorflow_pkg/tensorflow-1.0.1-py2-none-any.whl
 numpy
+scipy
 pandas
 matplotlib
 pillow
+six
+wheel
+sckit-image
+protobuf 
+tensorflow-gpu==1.0.1
+# tensorflow_pkg/tensorflow-1.0.1-py2-none-any.whl
+# sudo apt-get isntall libgeos*
+shapely
