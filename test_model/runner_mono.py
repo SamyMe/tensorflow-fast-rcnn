@@ -7,7 +7,7 @@ import os
 from scipy.misc import imread, imresize
 from roi_pooling_importer import * # import_roi_pooling_opt 
 from image_lib import draw_shapes
-from bi_graph import Fast_rcnn
+from uni_graph import Fast_rcnn
 
 
 def main():
@@ -61,34 +61,46 @@ def main():
     # 15 -> person
     # 7  -> car
 
-    fast_rcnn = Fast_rcnn(imgs, rois, nb_rois=2, class_names=class_names, sess=sess)
+    fast_rcnn = Fast_rcnn(imgs, rois, nb_img=len(roi_data), nb_rois=len(roi_data[0]), class_names=class_names, sess=sess)
     fast_rcnn.build_model(weights=w, sess=sess) 
     # fast_rcnn.convolve(img1, sess=sess)
 
-    _ = sess.run((fast_rcnn.save_conv), 
-                    feed_dict={fast_rcnn.imgs:[img1]})
+    # split_list = sess.run(fast_rcnn.rois_list,
+                    # feed_dict={fast_rcnn.imgs:[img1],
+                               # fast_rcnn.rois: roi_data})
+# 
+    # print(split_list)
 
-    prob, bbox = sess.run((fast_rcnn.cls_score, fast_rcnn.bbox_pred_l), 
-                    feed_dict={fast_rcnn.rois: roi_data})
-                    # feed_dict={fast_rcnn.rois: roi_data, fast_rcnn.imgs:[img1]})
+    file_writer = tf.summary.FileWriter('..', sess.graph)
+    prob, bbox  = sess.run((fast_rcnn.out_cls, fast_rcnn.out_bbox),
+                    feed_dict={fast_rcnn.imgs:[img1],
+                               fast_rcnn.rois: roi_data})
 
-    # print(prob)
-    # print(bbox)
-    for i in range(len(prob)):
-        prob_ = prob[i]
-        bbox_ = bbox[i]
+    print("!!! PROBS !!!")
+    prob = np.array(prob)
+    shape = prob.shape
+    prob = prob.reshape(shape[0], shape[1], shape[3])
+    bbox = np.array(bbox)
+    shape = bbox.shape
+    bbox = bbox.reshape(shape[0], shape[1], shape[3])
 
-        preds = (np.argsort(prob_)[::-1])[0:5]
-        for p in preds:
-            print class_names[p], prob_[p]
+    print(bbox.shape)
+    for img in range(len(prob)):
+        for i in range(len(prob[img])):
+            prob_ = prob[img][i]
+            bbox_ = bbox[img][i]
+
+            preds = (np.argsort(prob_)[::-1])[0:5]
+            for p in preds:
+                print class_names[p], prob_[p]
 
     # Extracting Boxes
     detect = ['person', 'car', 'cat'] 
     CONF_THRESH = 0.5
     for cls in detect:
         cls_ind = class_names.index(cls)
-        cls_boxes = bbox[:, 4*cls_ind:4*(cls_ind+1)]
-        cls_scores = prob[:, cls_ind]
+        cls_boxes = bbox[:,:, 4*cls_ind:4*(cls_ind+1)]
+        cls_scores = prob[:,:, cls_ind]
         keep = np.where(cls_scores >= CONF_THRESH)[0] 
         for i in keep:
             print(cls, cls_scores[i], cls_boxes[i])
