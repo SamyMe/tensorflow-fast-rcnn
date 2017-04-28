@@ -37,14 +37,28 @@ def fit(net, x_train, y_train, mode="fc", lr=0.001, nb_iter=100):
 
     bbox_loss = tf.squared_difference(pred_bbox_slice , y_box)
     bbox_loss = tf.reduce_mean(bbox_loss)
+    tf.summary.scalar('bbox_loss', bbox_loss)
 
     cls_loss = tf.to_float(tf.equal(y_cls, pred_cls))
     cls_loss = tf.reduce_mean(cls_loss)
+    tf.summary.scalar('cls_loss', cls_loss)
 
     if mode in ["fc", "all"]:
         cost = tf.add(bbox_loss, cls_loss)
     elif mode=="bbox":
         cost = bbox_loss 
+
+
+    summaries_dir = '..'
+    file_writer = tf.summary.FileWriter(summaries_dir+'/train', sess.graph)
+
+    # Merge all the summaries and write them out to /tmp/mnist_logs (by default)
+    merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter(summaries_dir + '/train',
+                                                  sess.graph)
+    test_writer = tf.summary.FileWriter(summaries_dir + '/test')
+    # tf.global_variables_initializer().run()
+
 
     opt = tf.train.GradientDescentOptimizer(learning_rate=lr)
     opt_op = opt.minimize(cost, var_list=var_list[mode])
@@ -60,12 +74,14 @@ def fit(net, x_train, y_train, mode="fc", lr=0.001, nb_iter=100):
     inds = np.array(inds)
 
     for i in range(nb_iter):
-        loss, _ = sess.run((cost, opt_op), feed_dict={ net.rois:x_train, 
+        bbox_l ,summary, loss, _ = sess.run((net.bbox_pred_l, merged, cost, opt_op), feed_dict={ net.rois:x_train, 
                                             box_ind:inds,
                                             y_cls:y_train[:,-1:].astype(np.int64), 
                                             y_box:y_train[:,:-1]})
  
+        print(np.array(bbox_l).shape)
         print('iteration {} : loss {}'.format(i, loss))
+        train_writer.add_summary(summary, i)
 
 
 if __name__=="__main__":
