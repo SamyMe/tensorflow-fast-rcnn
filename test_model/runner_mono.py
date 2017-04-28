@@ -13,12 +13,11 @@ from uni_graph import Fast_rcnn
 def main():
     sess = tf.Session()
     # Image placeholder
-    imgs = tf.placeholder(tf.float32, [None ,None, None, 3])
+    imgs_ph = tf.placeholder(tf.float32, [None ,None, None, 3])
     # imgs = tf.placeholder(tf.float32, [None, 6000, 1000, 3])
 
     # ROIs placeholder
-    rois_in = tf.placeholder(tf.int32, shape=[None, 4])
-    rois = tf.reshape(rois_in, [1, -1, 4])
+    rois_ph = tf.placeholder(tf.int32, shape=[None, None, 4])
 
     # Classes names
     class_names = ('__background__',
@@ -56,13 +55,19 @@ def main():
 
     # Loading Selective Search
     # roi_data = [[(0, 1, 50, 50), (20, 20, 100, 100), (50, 50, 100, 50), (1,1,im_shape[0], im_shape[1])]]
-    roi_data = [[(1, 1, im_shape[0]-1, im_shape[1]-1), (20, 20, 500, 200), (10, 10, im_shape[0], im_shape[1])]]
+    roi_data = np.array([
+                [(1, 1, im_shape[0]-1, im_shape[1]-1), (20, 20, 500, 200), (10, 10, im_shape[0], im_shape[1])],
+                [(1, 1, im_shape[0]-1, im_shape[1]-1), (20, 20, 500, 200), (10, 10, im_shape[0], im_shape[1])]
+                ])
+
     print(roi_data)
     # 15 -> person
     # 7  -> car
 
-    fast_rcnn = Fast_rcnn(imgs, rois, nb_img=len(roi_data), nb_rois=len(roi_data[0]), class_names=class_names, sess=sess)
+    fast_rcnn = Fast_rcnn(imgs_ph, rois_ph, nb_img=len(roi_data), nb_rois=len(roi_data[0]), class_names=class_names, sess=sess)
     fast_rcnn.build_model(weights=w, sess=sess) 
+    # Generate graph
+    # file_writer = tf.summary.FileWriter('../train', sess.graph)
     # fast_rcnn.convolve(img1, sess=sess)
 
     # split_list = sess.run(fast_rcnn.rois_list,
@@ -73,31 +78,50 @@ def main():
 
     file_writer = tf.summary.FileWriter('..', sess.graph)
     prob, bbox  = sess.run((fast_rcnn.out_cls, fast_rcnn.out_bbox),
-                    feed_dict={fast_rcnn.imgs:[img1],
+                    feed_dict={fast_rcnn.imgs:[img1, img1],
                                fast_rcnn.rois: roi_data})
 
-    print("!!! PROBS !!!")
-    prob = np.array(prob)
-    shape = prob.shape
-    prob = prob.reshape(shape[0], shape[1], shape[3])
-    bbox = np.array(bbox)
-    shape = bbox.shape
-    bbox = bbox.reshape(shape[0], shape[1], shape[3])
 
+    for p in prob:
+        print p
+    # prob = prob[0]
+    # bbox = bbox[0]
+    bbox = np.stack(bbox, 1)
     print(bbox.shape)
+    prob = np.stack(prob, 1)
+    print(prob.shape)
+    print("!!! PROBS !!!")
+    # prob = np.array(prob)
+    # shape = prob.shape
+    # prob = prob.reshape(shape[0], shape[1], shape[3])
+    # bbox = np.array(bbox)
+    # shape = bbox.shape
+    # bbox = bbox.reshape(shape[0], shape[1], shape[3])
+
     for img in range(len(prob)):
+        # For each image
+        print()
+        print("IMAGE {}".format(img))
+
         for i in range(len(prob[img])):
+            # For each roi
+            print("BBOX {}".format(i))
+            
             prob_ = prob[img][i]
             bbox_ = bbox[img][i]
 
-            preds = (np.argsort(prob_)[::-1])[0:5]
+            preds = np.argsort(prob_)[0:5]
             for p in preds:
                 print class_names[p], prob_[p]
+
+    exit()
+
 
     # Extracting Boxes
     detect = ['person', 'car', 'cat'] 
     CONF_THRESH = 0.5
     for cls in detect:
+        print(cls+"-----------------------------")
         cls_ind = class_names.index(cls)
         cls_boxes = bbox[:,:, 4*cls_ind:4*(cls_ind+1)]
         cls_scores = prob[:,:, cls_ind]

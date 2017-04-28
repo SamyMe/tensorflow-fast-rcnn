@@ -41,8 +41,6 @@ class Fast_rcnn:
         if weights is not None and sess is not None:
             self.load_weights(weights, sess)
 
-        self.roi_fc_shape = (4096, 25088)
-
     def conv_2d(self, scope_name, input, kernel_size, stride, padding='SAME'):
         """
         scope_name : 1_1
@@ -133,52 +131,22 @@ class Fast_rcnn:
 
         self.save_conv = tf.assign(ref=self.conv_saved, value=self.conv5_3, validate_shape=False)
 
-        # pool5
-        # self.pool5 = self.max_pool(input=self.conv5_3,
-                               # kernel_size=[1, 2, 2, 1],
-                               # stride=2,
-                               # name='pool5')
-
-        # # roi_pool5
-        # # First convert NHWC to NCHW
-        # relu5_transpose = tf.transpose(self.conv1_1, [0, 3, 1, 2])
-        # output_dim_tensor = tf.constant((104,104))
-        # 
-        # # rois = tf.split(self.rois, self.nb_rois, 0)
-        # # for roi in rois:
-        # ratio = tf.constant(1)
-        # self.rois = rois
-        # self.reshaped_rois = tf.div(rois, ratio)
- 
-        # roi_pool5, argmax = roi_pooling_op(relu5_transpose, self.reshaped_rois, output_dim_tensor)
- 
-        # # ROI pooling outputs in NCRHW.It shouldn't matter,but let's transpose to NRCHW.
-        # roi_pool5_transpose = tf.transpose(roi_pool5, [0, 2, 1, 3, 4])
-        # 
-        # # We need to bring this down to 4-d - collapse the ROI and batch together.
-        # # Should be redundant with next reshape, but whatever
-        # self.roi_pool5_reshaped2 = tf.reshape(roi_pool5_transpose, (-1, 64, 104, 104))
- 
-        # ###############################################################################
 
 
     def def_rois(self):
         self.out_bbox = []
         self.out_cls = []
 
-        self.img_list = tf.split(value=self.rois, num_or_size_splits=self.nb_img, axis=0)
+        rois_list = tf.split(value=self.rois, num_or_size_splits=self.nb_rois, axis=1)
+        for roi in rois_list:
+            c, b = self.roi_fc_layers(roi)
+            self.out_bbox.append(b)
+            self.out_cls.append(c)
 
-        for img in self.img_list:
-            rois_list = tf.split(value=img, num_or_size_splits=self.nb_rois, axis=1)
-            img_bbox = []
-            img_cls = []
-            for roi in rois_list:
-                c, b = self.roi_fc_layers(roi)
-                img_bbox.append(b)
-                img_cls.append(c)
+        self.out_cls = tf.stack(self.out_cls, axis=0) 
+        self.out_bbox = tf.stack(self.out_bbox, axis=0)
 
-            self.out_bbox.append(img_bbox)
-            self.out_cls.append(img_cls)
+
 
     def def_roi_fc_params(self):
 
