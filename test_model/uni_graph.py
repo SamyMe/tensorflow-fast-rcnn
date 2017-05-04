@@ -205,11 +205,12 @@ class Fast_rcnn:
         
         # rois = tf.split(self.rois, self.nb_rois, 0)
         # for roi in rois:
-        ratio = tf.constant(self.strides)
-        rois = self.rois
-        self.reshaped_rois = tf.div(rois, ratio)
+        ratio = tf.constant(self.strides, dtype=tf.float64)
+        self.reshaped_rois = tf.div(roi_placeholder, ratio)
+        # Add 1 in case shape too small
+        self.reshaped_rois = tf.add(self.reshaped_rois, tf.constant(1))
 
-        roi_pool5, argmax = roi_pooling_op(relu5_transpose, roi_placeholder, output_dim_tensor)
+        roi_pool5, argmax = roi_pooling_op(relu5_transpose, self.reshaped_rois, output_dim_tensor)
 
         # ROI pooling outputs in NCRHW.It shouldn't matter,but let's transpose to NRCHW.
         roi_pool5_transpose = tf.transpose(roi_pool5, [0, 2, 1, 3, 4])
