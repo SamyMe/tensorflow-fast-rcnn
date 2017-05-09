@@ -4,34 +4,6 @@ import numpy as np
 from .image_lib import draw_shapes
 
 
-def iou(ss, gt, threshold=0.5, bg_threshold=0.2):
-    train_boxes = []
-    train_labels = []
-    for gt_bbox in gt:
-        x3, y3, x4, y4, cls = gt_bbox
-        gt_box = box(x3, y3, x4, y4)
-        train_boxes.append(gt_bbox[:-1])
-        train_labels.append(gt_bbox)
-
-        for bbox in ss:
-            x1, y1, x2, y2 = bbox
-            # box(minx, miny, maxx, maxy, ccw=True)
-            ss_box = box(x1, y1, x2, y2)
-
-            u = ss_box.union(gt_box).area
-            i = ss_box.intersection(gt_box).area
-            
-            if i/u > threshold:
-                train_boxes.append(bbox)
-                train_labels.append(gt_bbox)
-
-            elif random()<bg_threshold:
-                train_boxes.append(bbox)
-                train_labels.append(list(bbox)+[0,])
-
-    return (train_boxes, train_labels)
-
-
 def get_label(gt, bbox):
     return [(gt[1]-bbox[1])/bbox[3], (gt[0]-bbox[0])/bbox[2], 
             np.log(gt[3]/bbox[3]), np.log(gt[2]/bbox[2])]
@@ -146,10 +118,9 @@ if __name__=="__main__":
     b = [(1,1,5,5, 1), (3,2,5,7, 2)]
     result = iou(ss=a, gt=b)
 
-    print(result)
-
     b = [(1,1,5,5)]
     c = [(3,2,5,7)]
     result = iou_flp(ss=a, faces=b, lps=c)
 
     print(result)
+
