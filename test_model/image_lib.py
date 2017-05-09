@@ -1,4 +1,7 @@
+# -*- coding: utf-8 -*-
 from scipy import misc
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
@@ -13,7 +16,7 @@ def image_show(ndimage):
     plt.imshow(ndimage)
     plt.show()
 
-def draw_shapes(img, faces=[], lp=[], shape=None):
+def draw_shapes(img, faces=[], lp=[], shape=None, img_name="img.jpg"):
     """
     img : ndimage
     shape : "rectangle", "circle", "polygn"
@@ -41,9 +44,10 @@ def draw_shapes(img, faces=[], lp=[], shape=None):
             dx = coordinate[2]
             dy = coordinate[3]
 
-            shape = patches.Rectangle((x,y), width=dx, height=dy, linewidth=1,
+            shape = patches.Rectangle((x,y), width=dx, height=dy, linewidth=2,
                                         edgecolor='r', facecolor='none')
             # Add the patch to the Axes
             ax.add_patch(shape)
 
-    plt.show()
+    # plt.show()
+    plt.savefig(img_name, dpi=900)
