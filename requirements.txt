@@ -1,5 +1,4 @@
-tensorflow_pkg/tensorflow-1.0.1-py2-none-any.whl
 numpy
-pandas
 matplotlib
 pillow
+scipy
