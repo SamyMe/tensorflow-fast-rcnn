@@ -7,9 +7,8 @@ import os
 from scipy.misc import imread, imresize
 from roi_pooling_importer import * # import_roi_pooling_opt 
 from image_lib import draw_shapes
-from bi_graph import Fast_rcnn
+from bi_graph import Fast_rcnn_bigraph as Fast_rcnn
 
-print("DONE")
 
 def main():
     sess = tf.Session()
@@ -30,7 +29,7 @@ def main():
            'sheep', 'sofa', 'train', 'tvmonitor')
     
     # Weights file
-    w = '/home/samy/Documents/mappy/panos/saved_data/vgg16_fast_rcnn_iter_40000.npy'
+    w = '/home/blur/Documents/saved_data/vgg16_fast_rcnn_iter_40000.npy'
 
     # Building Net
 
@@ -38,10 +37,7 @@ def main():
     # img1 = imresize(img1, (224, 224))
 
     # img1 = imread('1000039898195.jpg', mode='RGB')
-    # img1 = imread('/home/samy/Pictures/test.jpg', mode='RGB')
-    #img1 = imread('/home/samy/Documents/mappy/panos/saved_data/data/Images/1000041477810.jpg')
-    img1 = imread('/home/samy/Pictures/cat.jpg', mode='RGB')
-    # img1 = imread('/home/samy/Pictures/cars.jpg', mode='RGB')
+    img1 = imread('/home/blur/Pictures/cat.jpg', mode='RGB')
     
 
     # ss_file = '/home/samy/Documents/mappy/panos/ss.pkl'
@@ -59,18 +55,22 @@ def main():
     print(im_shape)
 
     # Loading Selective Search
-    roi_data = [[(0, 0, im_shape[0], im_shape[1]), (20, 20, 500, 200), (10, 10, im_shape[0], im_shape[1])]]
+    # roi_data = [[(0, 1, 50, 50), (20, 20, 100, 100), (50, 50, 100, 50), (1,1,im_shape[0], im_shape[1])]]
+    roi_data = [[(1, 1, im_shape[0]-1, im_shape[1]-1), (20, 20, 500, 200), (10, 10, im_shape[0], im_shape[1])]]
+    print(roi_data)
     # 15 -> person
     # 7  -> car
 
     fast_rcnn = Fast_rcnn(imgs, rois, nb_rois=2, class_names=class_names, sess=sess)
     fast_rcnn.build_model(weights=w, sess=sess) 
+    # fast_rcnn.convolve(img1, sess=sess)
 
     _ = sess.run((fast_rcnn.save_conv), 
                     feed_dict={fast_rcnn.imgs:[img1]})
 
     prob, bbox = sess.run((fast_rcnn.cls_score, fast_rcnn.bbox_pred_l), 
                     feed_dict={fast_rcnn.rois: roi_data})
+                    # feed_dict={fast_rcnn.rois: roi_data, fast_rcnn.imgs:[img1]})
 
     # print(prob)
     # print(bbox)

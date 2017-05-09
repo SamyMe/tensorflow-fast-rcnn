@@ -5,11 +5,10 @@ from tensorflow.python.framework import ops
 import numpy as np
 import os
 from scipy.misc import imread, imresize
-from roi_pooling_importer import * # import_roi_pooling_opt 
-from image_lib import draw_shapes
-from bi_graph import Fast_rcnn
+from utils import * # import_roi_pooling_opt 
+# from image_lib import draw_shapes
+from models import Fast_rcnn_bigraph as Fast_rcnn
 
-print("DONE")
 
 def main():
     sess = tf.Session()
@@ -59,18 +58,21 @@ def main():
     print(im_shape)
 
     # Loading Selective Search
+    # roi_data = [[(0, 1, 50, 50), (20, 20, 100, 100), (50, 50, 100, 50), (1,1,im_shape[0], im_shape[1])]]
     roi_data = [[(0, 0, im_shape[0], im_shape[1]), (20, 20, 500, 200), (10, 10, im_shape[0], im_shape[1])]]
     # 15 -> person
     # 7  -> car
 
     fast_rcnn = Fast_rcnn(imgs, rois, nb_rois=2, class_names=class_names, sess=sess)
     fast_rcnn.build_model(weights=w, sess=sess) 
+    # fast_rcnn.convolve(img1, sess=sess)
 
     _ = sess.run((fast_rcnn.save_conv), 
                     feed_dict={fast_rcnn.imgs:[img1]})
 
     prob, bbox = sess.run((fast_rcnn.cls_score, fast_rcnn.bbox_pred_l), 
                     feed_dict={fast_rcnn.rois: roi_data})
+                    # feed_dict={fast_rcnn.rois: roi_data, fast_rcnn.imgs:[img1]})
 
     # print(prob)
     # print(bbox)

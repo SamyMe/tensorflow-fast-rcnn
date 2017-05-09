@@ -12,7 +12,7 @@ from image_lib import draw_shapes
 # Import roi_pooling_op
 roi_pooling_op_dir = os.getenv("HOME") + "/Documents/github/roi_pool/tensorflow-fast-rcnn/tensorflow/core/user_ops/"
 roi_pooling_op = import_roi_pooling_op(roi_pooling_op_dir)
-
+  
 class Fast_rcnn:
     def __init__(self, imgs, rois, nb_rois, class_names,
                  roi_pool_output_dim=(7,7), sess=None):
